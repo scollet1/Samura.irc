@@ -1,0 +1,5 @@
+- [x] server/client talk (√)
+- [ ] database is setup
+- [ ] user setup/storage works
+- [x] authentication works (kinda)
+- [ ] client/server output chat
