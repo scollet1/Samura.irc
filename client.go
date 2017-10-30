@@ -196,7 +196,6 @@ func isValid(warrior Samurai) bool {
       }
     }
     if finished {
-      fmt.Println("returning control to main func()")
       break
     }
   }
@@ -219,10 +218,16 @@ func main() {
               "\nYou are connected to Dojo ~=> " + tcpAddr.String())
   _, warrior.err = warrior.conn.Write([]byte("HEAD / HTTP/1.0\r\n\r\n"))
   checkError(warrior.err)
-  if isValid(warrior) {
+
+  var truth = isValid(warrior)
+  fmt.Println(truth)
+
+  if truth == true {
+    fmt.Println("Enter loop")
     reader := bufio.NewReader(warrior.conn)
     readIn := bufio.NewReader(os.Stdin)
     for warrior.connected {
+      fmt.Println("connected")
       fmt.Print(warrior.Nick + "~*~ 武士 ~=> ")
       message, err := readIn.ReadString('\n')
       checkError(err)
