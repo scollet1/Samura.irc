@@ -168,59 +168,55 @@ func handle_connection(conn net.Conn, dojo map[string]*Lockbox) bool {
       }
     Chat:
       for {
-        for _, user := range dojo {
-          for _, samurai := range user.lock {
-            if samurai.connected {
-              for _, room := range samurai.rooms {
+        if samurai.connected {
+          for _, room := range samurai.rooms {
 
-                reader := bufio.NewReader(samurai.conn)
-                scribe := new(Scribe)
-                var enter string
-                var pigeon string
+            reader := bufio.NewReader(samurai.conn)
+            scribe := new(Scribe)
+            var enter string
+            var pigeon string
 
-                message, err := reader.ReadString('\n')
-                fmt.Println(message)
+            message, err := reader.ReadString('\n')
+            fmt.Println(message)
 
-                if (message == "NAMES~\n") {
-                  for each, _ := range dojo {
-                    scribe.scribe.WriteString(each)
-                  }
-                  samurai.conn.Write([]byte(scribe.scribe.String()))
-
-                } else if (message == "JOIN~\n") {
-                  enter, err = reader.ReadString('\n')
-                  if _, ok := samurai.rooms[enter]; ok {
-                    samurai.conn.Write([]byte("Room Joined\n"))
-                  } else {
-                    samurai.rooms[enter] = new(Scribe)
-                    samurai.conn.Write([]byte("Room Created\n"))
-                  }
-                } else if (message == "PART~\n") {
-                  leave, err := reader.ReadString('\n')
-                  checkError(err)
-                  if _, ok := samurai.rooms[leave]; ok {
-                    delete(samurai.rooms, leave)
-                  }
-                } else if (message == "NICK~\n") {
-                  message, err = reader.ReadString('\n')
-                  samurai.Nick = message
-                  samurai.conn.Write([]byte("Nickname Changed\n"))
-                } else if (message == "LIST~\n") {
-                  message, err = reader.ReadString('\n')
-                  samurai.Nick = message
-                  samurai.conn.Write([]byte(""))
-                } else if (message == "PM~\n") {
-                  pigeon, err = reader.ReadString('\n')
-                  if _, ok := dojo[pigeon]; ok {
-                    message, err = reader.ReadString('\n')
-                    checkError(err)
-                    dojo[pigeon].board.Write([]byte(message))
-                  }
-                } else {
-                  room.scribe.Write([]byte(strings.TrimSuffix(samurai.Nick, "\n") + " |--- 武士 ---> " + message))
-                  samurai.conn.Write([]byte(room.scribe.String()))
-                }
+            if (message == "NAMES~\n") {
+              for each, _ := range dojo {
+                scribe.scribe.WriteString(each)
               }
+              samurai.conn.Write([]byte(scribe.scribe.String()))
+
+            } else if (message == "JOIN~\n") {
+              enter, err = reader.ReadString('\n')
+              if _, ok := samurai.rooms[enter]; ok {
+                samurai.conn.Write([]byte("Room Joined\n"))
+              } else {
+                samurai.rooms[enter] = new(Scribe)
+                samurai.conn.Write([]byte("Room Created\n"))
+              }
+            } else if (message == "PART~\n") {
+              leave, err := reader.ReadString('\n')
+              checkError(err)
+              if _, ok := samurai.rooms[leave]; ok {
+                delete(samurai.rooms, leave)
+              }
+            } else if (message == "NICK~\n") {
+              message, err = reader.ReadString('\n')
+              samurai.Nick = message
+              samurai.conn.Write([]byte("Nickname Changed\n"))
+            } else if (message == "LIST~\n") {
+              message, err = reader.ReadString('\n')
+              samurai.Nick = message
+              samurai.conn.Write([]byte(""))
+            } else if (message == "PM~\n") {
+              pigeon, err = reader.ReadString('\n')
+              if _, ok := dojo[pigeon]; ok {
+                message, err = reader.ReadString('\n')
+                checkError(err)
+                dojo[pigeon].board.Write([]byte(message))
+              }
+            } else {
+              room.scribe.Write([]byte(strings.TrimSuffix(samurai.Nick, "\n") + " |--- 武士 ---> " + message))
+              samurai.conn.Write([]byte(room.scribe.String()))
             }
           }
         }
