@@ -19,6 +19,7 @@ import (
   "bytes"
   "encoding/gob"
   "bufio"
+  "strings"
 )
 
 const PORT = ":4242"
@@ -39,15 +40,13 @@ const PORT = ":4242"
 */
 
 type Scribe struct {
-  msg_buf bytes.Buffer
+  scribe bytes.Buffer
 }
 
 type Samurai struct {
   Nick string
   ID string
   simpleString string
-  pen bytes.Buffer
-  dragon bytes.Buffer
   connected bool
   nameV bool
   passV bool
@@ -56,10 +55,15 @@ type Samurai struct {
   dec gob.Decoder
   err error
   exists bool
+  rooms map[string]*Scribe
 }
 
 type Lockbox struct {
   lock map[string]*Samurai
+  Nick string
+  ID string
+  board bytes.Buffer
+  pm bytes.Buffer
 }
 
 type Dojo map[string]*Lockbox
@@ -102,7 +106,6 @@ func handle_connection(conn net.Conn, dojo map[string]*Lockbox) bool {
     checkError(err)
 
     message, err = reader.ReadString('\n')
-    fmt.Println(message)
 
     if message == "NewUserIncoming\n" { /* Check UserState */
       user, err = reader.ReadString('\n')
@@ -112,7 +115,7 @@ func handle_connection(conn net.Conn, dojo map[string]*Lockbox) bool {
 
       if _, ok := dojo[user]; ok {
         _, err = conn.Write([]byte("Username already registered ... \n"))
-        continue
+        goto Validate
       } else {
         _, err = conn.Write([]byte("Continue ... \n"))
 
@@ -120,12 +123,12 @@ func handle_connection(conn net.Conn, dojo map[string]*Lockbox) bool {
         dojo[user] = new(Lockbox)
         nick, err := reader.ReadString('\n')
         checkError(err)
-        fmt.Print(nick)
         pass, err = reader.ReadString('\n')
         checkError(err)
 
         dojo[user].lock = make(map[string]*Samurai)
         dojo[user].lock[pass] = new(Samurai)
+
         if _, ok = dojo[user].lock[pass]; ok {
           dojo[user].lock[pass].Nick = nick
           _, err = conn.Write([]byte("VALID\n"))
@@ -148,7 +151,11 @@ func handle_connection(conn net.Conn, dojo map[string]*Lockbox) bool {
             answer, err := reader.ReadString('\n')
             checkError(err)
             if answer == "YES\n" {
-              goto Chat
+              dojo[user].lock[pass].connected = true
+              message, _ := reader.ReadString('\n')
+              if message == "~*~ 武士 ~=>\n" {
+                goto Chat
+              }
             } else {
               continue
             }
@@ -157,31 +164,68 @@ func handle_connection(conn net.Conn, dojo map[string]*Lockbox) bool {
           _, err = conn.Write([]byte("No one exists under this name ... \n"))
           continue
         }
+        break
       }
     Chat:
-      scribe := new(Scribe)
       for {
         for _, user := range dojo {
-          //fmt.Print(each)
           for _, samurai := range user.lock {
-            //fmt.Print(this)
             if samurai.connected {
-              reader := bufio.NewReader(samurai.conn)
-              message, err = reader.ReadString('\n')
-              scribe.msg_buf.Write([]byte(samurai.Nick + " |--- 武士 ---> " + message))
+              for _, room := range samurai.rooms {
+
+                reader := bufio.NewReader(samurai.conn)
+                scribe := new(Scribe)
+                var enter string
+                var pigeon string
+
+                message, err := reader.ReadString('\n')
+                fmt.Println(message)
+
+                if (message == "NAMES~\n") {
+                  for each, _ := range dojo {
+                    scribe.scribe.WriteString(each)
+                  }
+                  samurai.conn.Write([]byte(scribe.scribe.String()))
+
+                } else if (message == "JOIN~\n") {
+                  enter, err = reader.ReadString('\n')
+                  if _, ok := samurai.rooms[enter]; ok {
+                    samurai.conn.Write([]byte("Room Joined\n"))
+                  } else {
+                    samurai.rooms[enter] = new(Scribe)
+                    samurai.conn.Write([]byte("Room Created\n"))
+                  }
+                } else if (message == "PART~\n") {
+                  leave, err := reader.ReadString('\n')
+                  checkError(err)
+                  if _, ok := samurai.rooms[leave]; ok {
+                    delete(samurai.rooms, leave)
+                  }
+                } else if (message == "NICK~\n") {
+                  message, err = reader.ReadString('\n')
+                  samurai.Nick = message
+                  samurai.conn.Write([]byte("Nickname Changed\n"))
+                } else if (message == "LIST~\n") {
+                  message, err = reader.ReadString('\n')
+                  samurai.Nick = message
+                  samurai.conn.Write([]byte(""))
+                } else if (message == "PM~\n") {
+                  pigeon, err = reader.ReadString('\n')
+                  if _, ok := dojo[pigeon]; ok {
+                    message, err = reader.ReadString('\n')
+                    checkError(err)
+                    dojo[pigeon].board.Write([]byte(message))
+                  }
+                } else {
+                  room.scribe.Write([]byte(strings.TrimSuffix(samurai.Nick, "\n") + " |--- 武士 ---> " + message))
+                  samurai.conn.Write([]byte(room.scribe.String()))
+                }
+              }
             }
           }
         }
-        for _, user := range dojo {
-          for _, samurai := range user.lock {
-            if samurai.connected {
-              _, err = conn.Write([]byte(scribe.msg_buf.String()))
-            }
-          }
-        }
-        continue
-        saveDojo("dojo.dj", dojo)
       }
+    saveDojo("dojo.dj", dojo)
     conn.Close()
     break
   }

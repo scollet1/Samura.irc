@@ -18,10 +18,6 @@ import (
   "os"
   "fmt"
   "bytes"
-  //"encoding/binary"
-  //"io/ioutil"
-  //"encoding/gob"
-  //"unicode"
 )
 
 type Samurai struct {
@@ -56,13 +52,14 @@ func checkError(err error) {
   }
 }
 
-func isValid(warrior Samurai) bool {
+func isValid(warrior Samurai) Samurai {
   var finished bool
   made := false
   var input string
   var response string
   reader := bufio.NewReader(warrior.conn)
   readIn := bufio.NewReader(os.Stdin)
+  warrior.connected = false
   for {
     /* Loop to handle new users */
 
@@ -137,7 +134,7 @@ func isValid(warrior Samurai) bool {
         _, warrior.err = warrior.conn.Write([]byte("ExistingUser\n"))
         break
       } else if input == "EXIT\n" {
-        return false
+        return warrior
       }  else {
         fmt.Print("Options: [y/n]")
         continue
@@ -200,7 +197,7 @@ func isValid(warrior Samurai) bool {
     }
   }
   warrior.connected = true
-  return warrior.connected
+  return warrior
 }
 
 func main() {
@@ -219,25 +216,55 @@ func main() {
   _, warrior.err = warrior.conn.Write([]byte("HEAD / HTTP/1.0\r\n\r\n"))
   checkError(warrior.err)
 
-  var truth = isValid(warrior)
-  fmt.Println(truth)
+  warrior = isValid(warrior)
+  if warrior.connected == true {
 
-  if truth == true {
-    fmt.Println("Enter loop")
     reader := bufio.NewReader(warrior.conn)
     readIn := bufio.NewReader(os.Stdin)
+    warrior.conn.Write([]byte("~*~ 武士 ~=>\n"))
     for warrior.connected {
-      fmt.Println("connected")
-      fmt.Print(warrior.Nick + "~*~ 武士 ~=> ")
+
       message, err := readIn.ReadString('\n')
+      fmt.Print(message)
       checkError(err)
-      if (message == "EXIT~") {
-        break
+      var reply string
+
+      warrior.conn.Write([]byte(message))
+
+      if (message == "NAMES~\n") {
+        reply, err = reader.ReadString('\n')
+        fmt.Print(reply)
+      } else if (message == "JOIN~\n") {
+        fmt.Print("Which room will you join? =~ ")
+        message, err = readIn.ReadString('\n')
+        warrior.conn.Write([]byte(message))
+        reply, err = reader.ReadString('\n')
+        fmt.Print(reply)
+      } else if (message == "PART~\n") {
+        message, err = reader.ReadString('\n')
+      } else if (message == "NICK~\n") {
+        fmt.Print("What would you like to change it to? =~ ")
+        message, err = readIn.ReadString('\n')
+        warrior.conn.Write([]byte("Nickname Changed\n"))
+      } else if (message == "LIST~\n") {
+        warrior.conn.Write([]byte(message))
+        reply, err = reader.ReadString('\n')
+        fmt.Print(reply)
+      } else if (message == "PM~\n") {
+        fmt.Print("Samurai to contact ~= ")
+        pigeon, err := readIn.ReadString('\n')
+        checkError(err)
+        warrior.conn.Write([]byte(pigeon))
+        reply, err = reader.ReadString('\n')
+        if reply == "VALID\n" {
+          fmt.Print("Message to send ~= ")
+          message, err = reader.ReadString('\n')
+          warrior.conn.Write([]byte(message))
+        }
+      } else {
+        reply, err = reader.ReadString('\n')
+        fmt.Println(reply)
       }
-      _, warrior.err = warrior.conn.Write([]byte(message))
-      reply, err := reader.ReadString('\n')
-      checkError(err)
-      fmt.Print(reply)
     }
   }
   fmt.Println("Goodbye")
