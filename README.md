@@ -1,2 +1,2 @@
 # Samura.irc
-client/server in go
+client/server written in Go meant to host an IRC. Unfinished
